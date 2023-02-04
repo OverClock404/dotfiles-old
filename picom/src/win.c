@@ -123,19 +123,6 @@ static void win_update_focused(session_t *ps, struct managed_win *w) {
 			w->focused = true;
 		}
 	}
-
-	// Always recalculate the window target opacity, since some opacity-related
-	// options depend on the output value of win_is_focused_real() instead of
-	// w->focused
-	auto opacity_target_old = w->opacity_target;
-	w->opacity_target = win_calc_opacity_target(ps, w, false);
-	if (opacity_target_old != w->opacity_target && w->state == WSTATE_MAPPED) {
-		// Only MAPPED can transition to FADING
-		w->state = WSTATE_FADING;
-		if (!ps->redirected) {
-			CHECK(!win_skip_fading(ps, w));
-		}
-	}
 }
 
 /**
@@ -202,7 +189,7 @@ static void win_get_region_local(const struct managed_win *w, region_t *res, boo
 	pixman_region32_fini(res);
 	pixman_region32_init_rect(res, 0, 0, (uint)w->widthb, (uint)w->heightb);
 
-	if(!include_corners) win_region_remove_corners(w, res);
+    if(!include_corners) win_region_remove_corners(w, res);
 }
 
 /**
@@ -219,7 +206,7 @@ void win_get_region_noframe_local(const struct managed_win *w, region_t *res, bo
 	pixman_region32_fini(res);
 	if (width > 0 && height > 0) {
 		pixman_region32_init_rect(res, x, y, (uint)width, (uint)height);
-		if(!include_corners) win_region_remove_corners(w, res);
+        if(!include_corners) win_region_remove_corners(w, res);
 	}
 }
 
@@ -246,7 +233,7 @@ void win_get_region_frame_local(const struct managed_win *w, region_t *res, bool
 	region_t reg_win;
 	pixman_region32_init_rects(&reg_win, (rect_t[]){0, 0, outer_width, outer_height}, 1);
 	pixman_region32_intersect(res, &reg_win, res);
-	if(!include_corners) win_region_remove_corners(w, res);
+    if(!include_corners) win_region_remove_corners(w, res);
 	pixman_region32_fini(&reg_win);
 }
 
@@ -726,7 +713,7 @@ static void win_set_shadow(session_t *ps, struct managed_win *w, bool shadow_new
 		w->shadow = shadow_new;
 		assert(!w->shadow_image);
 		assert(!w->win_image);
-		//assert(w->flags & WIN_FLAGS_IMAGES_NONE);
+		assert(w->flags & WIN_FLAGS_IMAGES_NONE);
 		return;
 	}
 
@@ -911,40 +898,25 @@ static void win_determine_blur_background(session_t *ps, struct managed_win *w) 
  * Determine if a window should have rounded corners.
  */
 static void win_determine_rounded_corners(session_t *ps, struct managed_win *w) {
-	if (w->a.map_state != XCB_MAP_STATE_VIEWABLE /*|| ps->o.corner_radius == 0*/)
+	if (w->a.map_state != XCB_MAP_STATE_VIEWABLE || ps->o.corner_radius == 0)
 		return;
 
 	// Don't round full screen windows & excluded windows
-	if ((w && win_is_fullscreen(ps, w)) ||
+	if ((w && win_is_fullscreen(ps, w)) || 
 		c2_match(ps, w, ps->o.rounded_corners_blacklist, NULL)) {
 		w->corner_radius = 0;
 		//log_warn("xy(%d %d) wh(%d %d) will NOT round corners", w->g.x, w->g.y, w->widthb, w->heightb);
 	} else {
 		w->corner_radius = ps->o.corner_radius;
 		//log_warn("xy(%d %d) wh(%d %d) will round corners", w->g.x, w->g.y, w->widthb, w->heightb);
-
 		// HACK: we reset this so we can query the color once
 		// we query the color in glx_round_corners_dst0 using glReadPixels
 		//w->border_col = { -1., -1, -1, -1 };
 		w->border_col[0] = w->border_col[1] = w->border_col[2] = w->border_col[3] = -1.0;
-
-        // wintypes config section override
-	    if (!safe_isnan(ps->o.wintype_option[w->window_type].corner_radius) &&
-            ps->o.wintype_option[w->window_type].corner_radius >= 0) {
-		    w->corner_radius = ps->o.wintype_option[w->window_type].corner_radius;
-            //log_warn("xy(%d %d) wh(%d %d) wintypes:corner_radius: %d", w->g.x, w->g.y, w->widthb, w->heightb, w->corner_radius);
-        }
-
         if (w && c2_match(ps, w, ps->o.round_borders_blacklist, NULL)) {
 		    w->round_borders = 0;
         } else {
             w->round_borders = ps->o.round_borders;
-            // wintypes config section override
-            if (!safe_isnan(ps->o.wintype_option[w->window_type].round_borders) &&
-                ps->o.wintype_option[w->window_type].round_borders >= 0) {
-                w->round_borders = ps->o.wintype_option[w->window_type].round_borders;
-                //log_warn("wintypes:round_borders: %d", w->round_borders);
-            }
         }
 	}
 }
@@ -1236,12 +1208,6 @@ struct win *fill_win(session_t *ps, struct win *w) {
 	    .dim = false,
 	    .invert_color = false,
 	    .blur_background = false,
-
-            .oldX = -10000,
-            .oldY = -10000,
-            .oldW = 0,
-            .oldH = 0,
-
 	    .reg_ignore = NULL,
 	    // The following ones are updated for other reasons
 	    .pixmap_damaged = false,          // updated by damage events
@@ -1309,7 +1275,7 @@ struct win *fill_win(session_t *ps, struct win *w) {
 	    .paint = PAINT_INIT,
 	    .shadow_paint = PAINT_INIT,
 
-		.corner_radius = 0,
+	    .corner_radius = 0,
 	};
 
 	assert(!w->destroyed);
@@ -1827,7 +1793,6 @@ static void destroy_win_finish(session_t *ps, struct win *w) {
 
 static void map_win_finish(struct managed_win *w) {
 	w->in_openclose = false;
-	w->isOld   = true;
 	w->state = WSTATE_MAPPED;
 }
 
@@ -2134,14 +2099,6 @@ void map_win_start(session_t *ps, struct managed_win *w) {
 
 	// XXX Can we assume map_state is always viewable?
 	w->a.map_state = XCB_MAP_STATE_VIEWABLE;
-
-	if (!w->isOld) {
-        w->oldX = -10000;
-        w->oldY = -10000;
-        w->oldW = 0;
-        w->oldH = 0;
-    }
-
 
 	win_update_screen(ps, w);
 

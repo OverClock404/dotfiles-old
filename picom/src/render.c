@@ -245,8 +245,7 @@ uint32_t make_rounded_window_shape(xcb_render_trapezoid_t traps[], uint32_t max_
     return n;
 }
 
-void render(session_t *ps, struct managed_win *w attr_unused, int x, int y,
-            int dx, int dy, int wid, int hei, int fullwid, int fullhei, double opacity,
+void render(session_t *ps, struct managed_win *w attr_unused, int x, int y, int dx, int dy, int wid, int hei, int fullwid, int fullhei, double opacity,
             bool argb, bool neg, int cr, xcb_render_picture_t pict, glx_texture_t *ptex,
             const region_t *reg_paint, const glx_prog_main_t *pprogram, clip_t *clip) {
 	switch (ps->o.backend) {
@@ -287,30 +286,30 @@ void render(session_t *ps, struct managed_win *w attr_unused, int x, int y,
 				xcb_render_free_picture(ps->c, p_tmp);
 
 			} else {
+                xcb_render_picture_t p_tmp = alpha_pict;
+                if(clip){
+                    p_tmp =  x_create_picture_with_standard(ps->c, ps->root, wid, hei, XCB_PICT_STANDARD_ARGB_32, 0, 0);
 
-				xcb_render_picture_t p_tmp = alpha_pict;
-				if(clip){
-					p_tmp =  x_create_picture_with_standard(ps->c, ps->root, wid, hei, XCB_PICT_STANDARD_ARGB_32, 0, 0);
+                    xcb_render_color_t black = {.red = 255, .blue = 255, .green = 255, .alpha = 255};
+                    const xcb_rectangle_t rect = {.x = 0, .y = 0, .width = to_u16_checked(wid), .height = to_u16_checked(hei)};
+                    xcb_render_fill_rectangles(ps->c, XCB_RENDER_PICT_OP_SRC, p_tmp, black, 1, &rect);
+                    if(alpha_pict) {
+                        xcb_render_composite(ps->c, XCB_RENDER_PICT_OP_SRC, alpha_pict, XCB_NONE, p_tmp, 0, 0, 0, 0, 0, 0, to_u16_checked(wid), to_u16_checked(hei));
+                    }
+                    xcb_render_composite(ps->c, XCB_RENDER_PICT_OP_OUT_REVERSE, clip->pict, XCB_NONE, p_tmp, 0, 0, 0, 0, to_i16_checked(clip->x),  to_i16_checked(clip->y), to_u16_checked(wid), to_u16_checked(hei));
+                }
+				uint8_t op =
+				    ((!argb && !alpha_pict && !clip) ? XCB_RENDER_PICT_OP_SRC
+				                            : XCB_RENDER_PICT_OP_OVER);
 
-					xcb_render_color_t black = {.red = 255, .blue = 255, .green = 255, .alpha = 255};
-					const xcb_rectangle_t rect = {.x = 0, .y = 0, .width = to_u16_checked(wid), .height = to_u16_checked(hei)};
-					xcb_render_fill_rectangles(ps->c, XCB_RENDER_PICT_OP_SRC, p_tmp, black, 1, &rect);
-					if(alpha_pict) {
-						xcb_render_composite(ps->c, XCB_RENDER_PICT_OP_SRC, alpha_pict, XCB_NONE, p_tmp, 0, 0, 0, 0, 0, 0, to_u16_checked(wid), to_u16_checked(hei));
-					}
-					xcb_render_composite(ps->c, XCB_RENDER_PICT_OP_OUT_REVERSE, clip->pict, XCB_NONE, p_tmp, 0, 0, 0, 0, to_i16_checked(clip->x),  to_i16_checked(clip->y), to_u16_checked(wid), to_u16_checked(hei));
-				}
-
-				uint8_t op = ((!argb && !alpha_pict && !clip) ? XCB_RENDER_PICT_OP_SRC
-			                                     : XCB_RENDER_PICT_OP_OVER);
 				xcb_render_composite(
-			   		ps->c, op, pict, p_tmp/*alpha_pict*/, ps->tgt_buffer.pict,
-			    	to_i16_checked(x), to_i16_checked(y), 0, 0, to_i16_checked(dx),
-			    	to_i16_checked(dy), to_u16_checked(wid), to_u16_checked(hei));
-
-				if(clip){
-					xcb_render_free_picture(ps->c, p_tmp);
-				}
+				    ps->c, op, pict, p_tmp, ps->tgt_buffer.pict,
+				    to_i16_checked(x), to_i16_checked(y), 0, 0,
+				    to_i16_checked(dx), to_i16_checked(dy),
+				    to_u16_checked(wid), to_u16_checked(hei));
+                if(clip){
+                    xcb_render_free_picture(ps->c, p_tmp);
+                }
 			}
 		}
 		break;
@@ -337,7 +336,7 @@ paint_region(session_t *ps, struct managed_win *w, int x, int y, int wid, int he
              double opacity, const region_t *reg_paint, xcb_render_picture_t pict) {
 	const int dx = (w ? w->g.x : 0) + x;
 	const int dy = (w ? w->g.y : 0) + y;
-	const int fullwid = w ? w->widthb : 0;
+    const int fullwid = w ? w->widthb : 0;
     const int fullhei = w ? w-> heightb : 0;
 	const bool argb = (w && (win_has_alpha(w) || ps->o.force_win_blend));
 	const bool neg = (w && w->invert_color);
@@ -376,10 +375,10 @@ static inline bool paint_isvalid(session_t *ps, const paint_t *ppaint) {
 /**
  * Rounde the corners of a window.
  * Applies a fragment shader to discard corners
- *
+ * 
  */
 static inline void
-win_round_corners(session_t *ps, struct managed_win *w attr_unused, int shader_idx attr_unused, float cr attr_unused,
+win_round_corners(session_t *ps, struct managed_win *w attr_unused, float cr attr_unused,
 		xcb_render_picture_t tgt_buffer attr_unused, const region_t *reg_paint) {
 #ifdef CONFIG_OPENGL
 	const int16_t x = w->g.x;
@@ -397,13 +396,8 @@ win_round_corners(session_t *ps, struct managed_win *w attr_unused, int shader_i
 	} break;
 #ifdef CONFIG_OPENGL
 	case BKEND_GLX:
-		if (shader_idx == 1) {
-			glx_round_corners_dst1(ps, w, w->glx_texture_bg, shader_idx, x, y, wid, hei,
-								(float)ps->psglx->z - 0.5f, cr, reg_paint, &w->glx_round_cache);
-		} else {
-			glx_round_corners_dst0(ps, w, w->glx_texture_bg, shader_idx, x, y, wid, hei,
-								(float)ps->psglx->z - 0.5f, cr, reg_paint, &w->glx_round_cache);
-		}
+		glx_round_corners_dst(ps, w, w->glx_texture_bg, x, y, wid, hei,
+					(float)ps->psglx->z - 0.5f, cr, reg_paint, &w->glx_round_cache);
 		break;
 #endif
 	default: assert(0);
@@ -456,7 +450,7 @@ void paint_one(session_t *ps, struct managed_win *w, const region_t *reg_paint) 
 		log_error("Window %#010x is missing painting data.", w->base.id);
 		return;
 	}
-
+	
 	const int x = w->g.x;
 	const int y = w->g.y;
 	const uint16_t wid = to_u16_checked(w->widthb);
@@ -684,10 +678,8 @@ static void paint_root(session_t *ps, const region_t *reg_paint) {
  * Generate shadow <code>Picture</code> for a window.
  */
 static bool win_build_shadow(session_t *ps, struct managed_win *w, double opacity) {
-	//const int width = w->widthb;
-	//const int height = w->heightb;
-	const int width = w->newW; // TODO!
-	const int height = w->newH;
+	const int width = w->widthb;
+	const int height = w->heightb;
 	// log_trace("(): building shadow for %s %d %d", w->name, width, height);
 
 	xcb_image_t *shadow_image = NULL;
@@ -768,29 +760,29 @@ win_paint_shadow(session_t *ps, struct managed_win *w, region_t *reg_paint) {
 		return;
 	}
 
-	xcb_render_picture_t td = XCB_NONE;
-	if (w->corner_radius) {
-		uint32_t max_ntraps = to_u32_checked(w->corner_radius);
-		xcb_render_trapezoid_t traps[4 * max_ntraps + 5];
-		uint32_t n = make_rounded_window_shape(traps, max_ntraps, w->corner_radius, w->widthb, w->heightb);
+    xcb_render_picture_t td = XCB_NONE;
+    if (w->corner_radius) {
+            uint32_t max_ntraps = to_u32_checked(w->corner_radius);
+            xcb_render_trapezoid_t traps[4 * max_ntraps + 5];
+            uint32_t n = make_rounded_window_shape(traps, max_ntraps, w->corner_radius, w->widthb, w->heightb);
 
-		td = x_create_picture_with_standard(ps->c, ps->root, w->widthb, w->heightb, XCB_PICT_STANDARD_ARGB_32, 0, 0);
-		xcb_render_color_t trans = {.red = 0, .blue = 0, .green = 0, .alpha = 0};
-		const xcb_rectangle_t rect = {.x = 0, .y = 0, .width = to_u16_checked(w->widthb), .height = to_u16_checked(w->heightb)};
-		xcb_render_fill_rectangles(ps->c, XCB_RENDER_PICT_OP_SRC, td, trans, 1, &rect);
+            td = x_create_picture_with_standard(ps->c, ps->root, w->widthb, w->heightb, XCB_PICT_STANDARD_ARGB_32, 0, 0);
+            xcb_render_color_t trans = {.red = 0, .blue = 0, .green = 0, .alpha = 0};
+            const xcb_rectangle_t rect = {.x = 0, .y = 0, .width = to_u16_checked(w->widthb), .height = to_u16_checked(w->heightb)};
+            xcb_render_fill_rectangles(ps->c, XCB_RENDER_PICT_OP_SRC, td, trans, 1, &rect);
 
-		xcb_render_trapezoids(ps->c, XCB_RENDER_PICT_OP_OVER, solid_picture(ps->c, ps->root, false, 1, 0, 0, 0), td, x_get_pictfmt_for_standard(ps->c, XCB_PICT_STANDARD_A_8), 0, 0, n, traps);
-	}
+            auto solid = solid_picture(ps->c, ps->root, false, 1, 0, 0, 0);
+            xcb_render_trapezoids(ps->c, XCB_RENDER_PICT_OP_OVER, solid, td, x_get_pictfmt_for_standard(ps->c, XCB_PICT_STANDARD_A_8), 0, 0, n, traps);
+            xcb_render_free_picture(ps->c, solid);
+        }
 
-	clip_t clip = { .pict = td, -(w->shadow_dx), .y = -(w->shadow_dy) };
-
+    clip_t clip = { .pict = td, -(w->shadow_dx), .y = -(w->shadow_dy) };
 	render(ps, w, 0, 0, w->g.x + w->shadow_dx, w->g.y + w->shadow_dy, w->shadow_width,
 	       w->shadow_height, w->widthb, w->heightb, w->shadow_opacity, true, false, 0, w->shadow_paint.pict,
 	       w->shadow_paint.ptex, reg_paint, NULL, w->corner_radius ? &clip : NULL);
-
-	if(td){
-		xcb_render_free_picture(ps->c, td);
-	}
+    if(td){
+        xcb_render_free_picture(ps->c, td);
+    }
 }
 
 /**
@@ -855,7 +847,6 @@ static bool xr_blur_dst(session_t *ps, xcb_render_picture_t tgt_buffer, int16_t 
 	}
 
 	if (src_pict != tgt_buffer)
-		//xcb_render_composite(ps->c, XCB_RENDER_PICT_OP_SRC, src_pict, rounded,
 		xcb_render_composite(ps->c, XCB_RENDER_PICT_OP_OVER, src_pict, rounded,
 		                     tgt_buffer, 0, 0, 0, 0, x, y, wid, hei);
 
@@ -906,7 +897,7 @@ win_blur_background(session_t *ps, struct managed_win *w, xcb_render_picture_t t
 			                            &ps->blur_kerns_cache[i]);
 		}
 
-		xcb_render_picture_t td = XCB_NONE;
+        xcb_render_picture_t td = XCB_NONE;
         if (cr) {
             uint32_t max_ntraps = to_u32_checked(cr);
             xcb_render_trapezoid_t traps[4 * max_ntraps + 5];
@@ -917,7 +908,10 @@ win_blur_background(session_t *ps, struct managed_win *w, xcb_render_picture_t t
             const xcb_rectangle_t rect = {.x = 0, .y = 0, .width = to_u16_checked(wid), .height = to_u16_checked(hei)};
             xcb_render_fill_rectangles(ps->c, XCB_RENDER_PICT_OP_SRC, td, trans, 1, &rect);
 
-            xcb_render_trapezoids(ps->c, XCB_RENDER_PICT_OP_OVER, solid_picture(ps->c, ps->root, false, 1, 0, 0, 0), td, x_get_pictfmt_for_standard(ps->c, XCB_PICT_STANDARD_A_8), 0, 0, n, traps);
+            auto solid = solid_picture(ps->c, ps->root, false, 1, 0, 0, 0);
+
+            xcb_render_trapezoids(ps->c, XCB_RENDER_PICT_OP_OVER, solid, td, x_get_pictfmt_for_standard(ps->c, XCB_PICT_STANDARD_A_8), 0, 0, n, traps);
+            xcb_render_free_picture(ps->c, solid);
         }
 
 		// Minimize the region we try to blur, if the window itself is not
@@ -931,17 +925,21 @@ win_blur_background(session_t *ps, struct managed_win *w, xcb_render_picture_t t
 			pixman_region32_subtract(&reg_blur, &reg_blur, &reg_noframe);
 			pixman_region32_fini(&reg_noframe);
 		}
+        
 		// Translate global coordinates to local ones
 		pixman_region32_translate(&reg_blur, -x, -y);
 		xr_blur_dst(ps, tgt_buffer, x, y, wid, hei, ps->blur_kerns_cache,
 		            ps->o.blur_kernel_count, &reg_blur, td);
+        if(td){
+            xcb_render_free_picture(ps->c, td);
+        }
 		pixman_region32_clear(&reg_blur);
 	} break;
 #ifdef CONFIG_OPENGL
 	case BKEND_GLX:
 		// TODO: Handle frame opacity
 		glx_blur_dst(ps, x, y, wid, hei, (float)ps->psglx->z - 0.5f,
-		             (float)w->opacity, reg_paint, &w->glx_blur_cache);
+		             (float)factor_center, reg_paint, &w->glx_blur_cache);
 		break;
 #endif
 	default: assert(0);
@@ -1103,14 +1101,13 @@ void paint_all(session_t *ps, struct managed_win *t, bool ignore_damage) {
 		pixman_region32_subtract(&reg_tmp, &region, w->reg_ignore);
 		pixman_region32_intersect(&reg_tmp, &reg_tmp, &bshape_corners);
 		pixman_region32_fini(&bshape_corners);
-		pixman_region32_fini(&bshape_no_corners);
+        pixman_region32_fini(&bshape_no_corners);
 
-		reg_tmp = region;
-		if (pixman_region32_not_empty(&reg_tmp) || true) {
+		if (pixman_region32_not_empty(&reg_tmp)) {
 			set_tgt_clip(ps, &reg_tmp);
 
-			// If rounded corners backup the region first
 #ifdef CONFIG_OPENGL
+			// If rounded corners backup the region first
 			if (w->corner_radius > 0) {
 				const int16_t x = w->g.x;
 				const int16_t y = w->g.y;
@@ -1119,7 +1116,7 @@ void paint_all(session_t *ps, struct managed_win *t, bool ignore_damage) {
 				glx_bind_texture(ps, &w->glx_texture_bg, x, y, wid, hei, false);
 			}
 #endif
-
+			
 			// Blur window background
 			if (w->blur_background &&
 			    (w->mode == WMODE_TRANS ||
@@ -1132,7 +1129,7 @@ void paint_all(session_t *ps, struct managed_win *t, bool ignore_damage) {
 
 			// Round window corners
 			if (w->corner_radius > 0) {
-				win_round_corners(ps, w, 1, (float)w->corner_radius,
+				win_round_corners(ps, w, (float)w->corner_radius,
 						ps->tgt_buffer.pict, &reg_tmp);
 			}
 		}
@@ -1343,15 +1340,13 @@ bool init_render(session_t *ps) {
 	}
 
 	// Blur filter
-	if (ps->o.blur_method && ps->o.blur_method != BLUR_METHOD_KERNEL &&
-		ps->o.blur_method != BLUR_METHOD_DUAL_KAWASE && ps->o.blur_method != BLUR_METHOD_ALT_KAWASE) {
-		log_warn("Old backends only support blur methods \"kernel|kawase\". Your blur "
+	if (ps->o.blur_method && ps->o.blur_method != BLUR_METHOD_KERNEL) {
+		log_warn("Old backends only support blur method \"kernel\". Your blur "
 		         "setting will not be applied");
 		ps->o.blur_method = BLUR_METHOD_NONE;
 	}
 
-	if (ps->o.blur_method == BLUR_METHOD_KERNEL || ps->o.blur_method == BLUR_METHOD_DUAL_KAWASE
-												|| ps->o.blur_method == BLUR_METHOD_ALT_KAWASE) {
+	if (ps->o.blur_method == BLUR_METHOD_KERNEL) {
 		ps->blur_kerns_cache =
 		    ccalloc(ps->o.blur_kernel_count, struct x_convolution_kernel *);
 

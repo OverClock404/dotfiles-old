@@ -11,10 +11,10 @@
 #include "atom.h"
 #include "common.h"
 #include "compiler.h"
+#include "picom.h"
 #include "config.h"
 #include "event.h"
 #include "log.h"
-#include "picom.h"
 #include "region.h"
 #include "utils.h"
 #include "win.h"
@@ -100,6 +100,9 @@ static inline xcb_window_t attr_pure ev_window(session_t *ps, xcb_generic_event_
 	}
 }
 
+#define CASESTRRET(s)                                                                    \
+	case s: return #s;
+
 static inline const char *ev_name(session_t *ps, xcb_generic_event_t *ev) {
 	static char buf[128];
 	switch (ev->response_type & 0x7f) {
@@ -162,6 +165,8 @@ static inline const char *attr_pure ev_focus_detail_name(xcb_focus_in_event_t *e
 	return "Unknown";
 }
 
+#undef CASESTRRET
+
 static inline void ev_focus_in(session_t *ps, xcb_focus_in_event_t *ev) {
 	log_debug("{ mode: %s, detail: %s }\n", ev_focus_mode_name(ev),
 	          ev_focus_detail_name(ev));
@@ -196,123 +201,6 @@ static void configure_win(session_t *ps, xcb_configure_notify_event_t *ce) {
 
 	auto mw = (struct managed_win *)w;
 
-	float t = get_time_ms();
-	if (mw->oldX == -10000 && mw->oldY == -10000 && mw->oldW == 0 && mw->oldH == 0) {
-		if (!mw->isOld) {
-			/* mw->isOld = true; */
-
-			if (ps->o.spawn_center_screen) {
-				mw->oldX = ps->root_width / 2;
-				mw->oldY = ps->root_height / 2;
-				mw->oldW = 1;
-				mw->oldH = 1;
-			} else if (ps->o.spawn_center) {
-				mw->oldX = ce->x + ce->width / 2;
-				mw->oldY = ce->y + ce->height / 2;
-				mw->oldW = 1;
-				mw->oldH = 1;
-			} else {
-				mw->oldX = ce->x;
-				mw->oldY = ce->y;
-				mw->oldW = ce->width;
-				mw->oldH = ce->height;
-			}
-		} else {
-			mw->oldX = ce->x;
-			mw->oldY = ce->y;
-			mw->oldW = ce->width;
-			mw->oldH = ce->height;
-		}
-
-		mw->newX = ce->x;
-		mw->newY = ce->y;
-		mw->newW = ce->width;
-		mw->newH = ce->height;
-		mw->moveTimeX = t;
-		mw->moveTimeY = t;
-		mw->moveTimeW = t;
-		mw->moveTimeH = t;
-	} else {
-		if (mw->newX == mw->g.x && mw->newY == mw->g.y) {
-			mw->oldX = mw->g.x;
-			mw->oldY = mw->g.y;
-			mw->oldW = mw->g.width;
-			mw->oldH = mw->g.height;
-			mw->moveTimeX = t;
-			mw->moveTimeY = t;
-			mw->moveTimeW = t;
-			mw->moveTimeH = t;
-		}
-		if (mw->newX != ce->x || mw->newY != ce->y || mw->newW != ce->width ||
-		    mw->newH != ce->height) {
-			float moveDx = ((float)t - mw->moveTimeX) / ps->o.transition_length;
-			float moveDy = ((float)t - mw->moveTimeY) / ps->o.transition_length;
-			float moveDw = ((float)t - mw->moveTimeW) / ps->o.transition_length;
-			float moveDh = ((float)t - mw->moveTimeH) / ps->o.transition_length;
-
-			if (mw->moveTimeX != 0.0 && moveDx < 1.0 && mw->oldX != mw->newX) {
-				float oldMoveDx = pow(
-				    (float)(mw->newX - mw->g.x) / (float)(mw->newX - ce->x),
-				    1 / ps->o.transition_pow_x);
-				float fakeT =
-				    (t - oldMoveDx * (float)ps->o.transition_length);
-				/* printf("X: %f,%f\n", fakeT, t); */
-				mw->moveTimeX = isnanf(fakeT) ? t : fakeT;
-			} else {
-				mw->moveTimeX = t;
-			}
-			if (mw->moveTimeY != 0.0 && moveDy < 1.0 && mw->oldY != mw->newY) {
-				float oldMoveDy = pow(
-				    (float)(mw->newY - mw->g.y) / (float)(mw->newY - ce->y),
-				    1 / ps->o.transition_pow_y);
-				float fakeT =
-				    (t - oldMoveDy * (float)ps->o.transition_length);
-				/* printf("Y: %f,%f\n", fakeT, t); */
-				mw->moveTimeY = isnanf(fakeT) ? t : fakeT;
-			} else {
-				mw->moveTimeY = t;
-			}
-			if (mw->moveTimeW != 0.0 && moveDw < 1.0 && mw->oldW != mw->newW) {
-				float oldMoveDw = pow((float)(mw->newW - mw->g.width) /
-				                          (float)(mw->newW - ce->width),
-				                      1 / ps->o.transition_pow_w);
-				float fakeT =
-				    (t - oldMoveDw * (float)ps->o.transition_length);
-				/* printf("Y: %f,%f\n", fakeT, t); */
-				mw->moveTimeW = isnanf(fakeT) ? t : fakeT;
-			} else {
-				mw->moveTimeW = t;
-			}
-			if (mw->moveTimeH != 0.0 && moveDh < 1.0 && mw->oldH != mw->newH) {
-				float oldMoveDh = pow((float)(mw->newH - mw->g.height) /
-				                          (float)(mw->newH - ce->height),
-				                      1 / ps->o.transition_pow_h);
-				float fakeT =
-				    (t - oldMoveDh * (float)ps->o.transition_length);
-				/* printf("Y: %f,%f\n", fakeT, t); */
-				mw->moveTimeH = isnanf(fakeT) ? t : fakeT;
-			} else {
-				mw->moveTimeH = t;
-			}
-
-			mw->oldX = mw->newX;
-			mw->oldY = mw->newY;
-			mw->oldW = mw->newW;
-			mw->oldH = mw->newH;
-			mw->newX = ce->x;
-			mw->newY = ce->y;
-			mw->newW = ce->width;
-			mw->newH = ce->height;
-
-			if (ps->o.no_scale_down && mw->newW < mw->oldW) {
-				mw->oldW = mw->newW;
-			}
-			if (ps->o.no_scale_down && mw->newH < mw->oldH) {
-				mw->oldH = mw->newH;
-			}
-		}
-	}
-
 	if (mw->state == WSTATE_UNMAPPED || mw->state == WSTATE_UNMAPPING ||
 	    mw->state == WSTATE_DESTROYING) {
 		// Only restack the window to make sure we can handle future restack
@@ -328,6 +216,9 @@ static void configure_win(session_t *ps, xcb_configure_notify_event_t *ce) {
 		    mw->g.height != ce->height || mw->g.border_width != ce->border_width) {
 			factor_change = true;
 		}
+
+		mw->g.x = ce->x;
+		mw->g.y = ce->y;
 
 		if (mw->g.width != ce->width || mw->g.height != ce->height ||
 		    mw->g.border_width != ce->border_width) {
@@ -364,7 +255,7 @@ static inline void ev_configure_notify(session_t *ps, xcb_configure_notify_event
 	log_debug("{ send_event: %d, id: %#010x, above: %#010x, override_redirect: %d }",
 	          ev->event, ev->window, ev->above_sibling, ev->override_redirect);
 	if (ev->window == ps->root) {
-		configure_root(ps, ev->width, ev->height);
+		set_root_flags(ps, ROOT_FLAGS_CONFIGURED);
 	} else {
 		configure_win(ps, ev);
 	}
@@ -486,6 +377,7 @@ static inline void expose_root(session_t *ps, const rect_t *rects, int nrects) {
 	region_t region;
 	pixman_region32_init_rects(&region, rects, nrects);
 	add_damage(ps, &region);
+    pixman_region32_fini(&region);
 }
 
 static inline void ev_expose(session_t *ps, xcb_expose_event_t *ev) {

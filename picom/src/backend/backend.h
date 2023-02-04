@@ -59,11 +59,6 @@ struct gaussian_blur_args {
 	double deviation;
 };
 
-struct dual_kawase_blur_args {
-	int size;
-	blur_strength_t strength;
-};
-
 struct box_blur_args {
 	int size;
 };
@@ -150,7 +145,7 @@ struct backend_operations {
 	             const region_t *reg_blur, const region_t *reg_visible)
 	    attr_nonnull(1, 3, 4, 5);
 
-	/// Round a given region of the rendering buffer.
+    /// Round a given region of the rendering buffer.
 	bool (*round)(backend_t *backend_data, struct managed_win *w, void *round_ctx,
 	             void *image_data, const region_t *reg_round, const region_t *reg_visible)
 	    attr_nonnull(1, 2, 3, 5, 6);
@@ -236,7 +231,7 @@ struct backend_operations {
 	/// Get how many pixels outside of the blur area is needed for blur
 	void (*get_blur_size)(void *blur_context, int *width, int *height);
 
-	/// Backup our current window background so we can use it for "erasing" corners
+    /// Backup our current window background so we can use it for "erasing" corners
 	bool (*store_back_texture)(backend_t *base, struct managed_win *w, void *ctx_,
 						const region_t *reg_tgt, int x, int y, int width, int height);
 

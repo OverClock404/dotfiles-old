@@ -153,6 +153,9 @@ void paint_all_new(session_t *ps, struct managed_win *t, bool ignore_damage) {
 	if (ps->root_image) {
 		ps->backend_data->ops->compose(ps->backend_data, t, ps->root_image, 0, 0,
 		                               &reg_paint, &reg_visible);
+	} else {
+		ps->backend_data->ops->fill(ps->backend_data, (struct color){0, 0, 0, 1},
+		                            &reg_paint);
 	}
 
 	// Windows are sorted from bottom to top
@@ -222,9 +225,6 @@ void paint_all_new(session_t *ps, struct managed_win *t, bool ignore_damage) {
 				// fading out.
 				blur_opacity =
 				    w->opacity / win_calc_opacity_target(ps, w, true);
-			} else if (!ps->o.blur_background_fixed) {
-				// Apply blur intensity depending on the window opacity.
-				blur_opacity = w->opacity;
 			}
 
 			if (real_win_mode == WMODE_TRANS || ps->o.force_win_blend) {

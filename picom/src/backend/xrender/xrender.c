@@ -286,6 +286,7 @@ static bool blur(backend_t *backend_data, double opacity, void *ctx_,
 	xcb_render_free_picture(c, tmp_picture[0]);
 	xcb_render_free_picture(c, tmp_picture[1]);
 	pixman_region32_fini(&reg_op);
+    pixman_region32_fini(&reg_op_resized);
 	return true;
 }
 
@@ -559,13 +560,6 @@ void *create_blur_context(backend_t *base attr_unused, enum blur_method method, 
 		return ret;
 	}
 
-	if (method == BLUR_METHOD_DUAL_KAWASE || method == BLUR_METHOD_ALT_KAWASE) {
-		log_warn("Blur method 'kawase' is not compatible with the 'xrender' "
-				 "backend.");
-		ret->method = BLUR_METHOD_NONE;
-		return ret;
-	}
-
 	ret->method = BLUR_METHOD_KERNEL;
 	struct conv **kernels;
 	int kernel_count;
@@ -711,7 +705,7 @@ struct backend_operations xrender_ops = {
     .init = backend_xrender_init,
     .deinit = deinit,
     .blur = blur,
-	.round = x_round,
+    .round = x_round,
     .present = present,
     .compose = compose,
     .fill = fill,
@@ -728,11 +722,10 @@ struct backend_operations xrender_ops = {
     .copy = copy,
     .create_blur_context = create_blur_context,
     .destroy_blur_context = destroy_blur_context,
-	.create_round_context = create_round_context,
+    .create_round_context = create_round_context,
     .destroy_round_context = destroy_round_context,
     .get_blur_size = get_blur_size,
-	.store_back_texture = store_back_texture
-	
+    .store_back_texture = store_back_texture
 };
 
 // vim: set noet sw=8 ts=8:

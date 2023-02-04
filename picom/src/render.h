@@ -25,10 +25,11 @@ typedef struct paint {
 #endif
 } paint_t;
 
+
 typedef struct clip {
-	xcb_render_picture_t pict;
-	int x;
-	int y;
+    xcb_render_picture_t pict;
+    int x;
+    int y;
 } clip_t;
 
 void render(session_t *ps, struct managed_win *, int x, int y, int dx, int dy, int w, int h, int fullw, int fullh, double opacity,

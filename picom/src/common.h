@@ -36,9 +36,9 @@
 #include <X11/Xlib.h>
 #include <ev.h>
 #include <pixman.h>
+#include <xcb/xproto.h>
 #include <xcb/render.h>
 #include <xcb/sync.h>
-#include <xcb/xproto.h>
 
 #include "uthash_extra.h"
 #ifdef CONFIG_OPENGL
@@ -55,11 +55,11 @@
 #include "backend/driver.h"
 #include "compiler.h"
 #include "config.h"
-#include "list.h"
 #include "region.h"
-#include "render.h"
 #include "types.h"
 #include "utils.h"
+#include "list.h"
+#include "render.h"
 #include "win_defs.h"
 #include "x.h"
 
@@ -74,9 +74,6 @@
 
 /// @brief Maximum OpenGL buffer age.
 #define CGLX_MAX_BUFFER_AGE 5
-
-/// @brief Maximum passes for blur.
-#define MAX_BLUR_PASS 6
 
 // Window flags
 
@@ -160,7 +157,7 @@ typedef struct session {
 	backend_t *backend_data;
 	/// backend blur context
 	void *backend_blur_context;
-	/// round corners context
+    /// round corners context
 	void *backend_round_context;
 	/// graphic drivers used
 	enum driver drivers;
@@ -254,11 +251,11 @@ typedef struct session {
 	// Cached blur convolution kernels.
 	struct x_convolution_kernel **blur_kerns_cache;
 	/// If we should quit
-	bool quit : 1;
+	bool quit:1;
 	/// Whether there are pending updates, like window creation, etc.
 	/// TODO use separate flags for dfferent kinds of updates so we don't
 	/// waste our time.
-	bool pending_updates : 1;
+	bool pending_updates:1;
 
 	// === Expose event related ===
 	/// Pointer to an array of <code>XRectangle</code>-s of exposed region.
@@ -344,8 +341,8 @@ typedef struct session {
 	int randr_error;
 	/// Whether X Present extension exists.
 	bool present_exists;
-#ifdef CONFIG_OPENGL
 	/// Whether X GLX extension exists.
+#ifdef CONFIG_OPENGL
 	bool glx_exists;
 	/// Event base number for X GLX extension.
 	int glx_event;
@@ -533,8 +530,3 @@ static inline void wintype_arr_enable(bool arr[]) {
 		arr[i] = true;
 	}
 }
-
-/**
- * Get current system clock in milliseconds.
- */
-int64_t get_time_ms(void);

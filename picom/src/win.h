@@ -40,13 +40,13 @@ typedef struct _glx_texture glx_texture_t;
 //       it is very unideal for it to be here
 typedef struct {
 	/// Framebuffer used for blurring.
-	GLuint fbos[MAX_BLUR_PASS];
+	GLuint fbo;
 	/// Textures used for blurring.
-	GLuint textures[MAX_BLUR_PASS];
+	GLuint textures[2];
 	/// Width of the textures.
-	int width[MAX_BLUR_PASS];
+	int width;
 	/// Height of the textures.
-	int height[MAX_BLUR_PASS];
+	int height;
 } glx_blur_cache_t;
 #endif
 
@@ -204,7 +204,7 @@ struct managed_win {
 
 	/// Corner radius
 	int corner_radius;
-	bool round_borders;
+    bool round_borders;
 	float border_col[4];
 
 	// Fading-related members
@@ -250,14 +250,6 @@ struct managed_win {
 
 	/// Whether to blur window background.
 	bool blur_background;
-
-	/// Animation state
-        int oldX; int oldY; int oldW; int oldH;
-        int newX; int newY; int newW; int newH;
-        float moveTimeX; float moveTimeY;
-        float moveTimeW; float moveTimeH;
-        bool isOld;
-
 
 #ifdef CONFIG_OPENGL
 	/// Textures and FBO background blur use.
@@ -455,24 +447,25 @@ struct managed_win *attr_pure win_stack_find_next_managed(const session_t *ps,
 void free_win_res(session_t *ps, struct managed_win *w);
 
 static inline void win_region_remove_corners(const struct managed_win *w, region_t *res) {
-	region_t corners;
-	pixman_region32_init_rects(
-		&corners,
-		(rect_t[]){
-			{.x1 = 0, .y1 = 0, .x2 = w->corner_radius, .y2 = w->corner_radius},
-			{.x1 = 0, .y1 = w->heightb-w->corner_radius, .x2 = w->corner_radius, .y2 = w->heightb},
-			{.x1 = w->widthb-w->corner_radius, .y1 = 0, .x2 = w->widthb, .y2 = w->corner_radius},
-			{.x1 = w->widthb-w->corner_radius, .y1 = w->heightb-w->corner_radius, .x2 = w->widthb, .y2 = w->heightb},
-		},
-		4);
-	pixman_region32_subtract(res, res, &corners);
+    region_t corners;
+    pixman_region32_init_rects(
+        &corners,
+        (rect_t[]){
+            {.x1 = 0, .y1 = 0, .x2 = w->corner_radius, .y2 = w->corner_radius},
+            {.x1 = 0, .y1 = w->heightb-w->corner_radius, .x2 = w->corner_radius, .y2 = w->heightb},
+            {.x1 = w->widthb-w->corner_radius, .y1 = 0, .x2 = w->widthb, .y2 = w->corner_radius},
+            {.x1 = w->widthb-w->corner_radius, .y1 = w->heightb-w->corner_radius, .x2 = w->widthb, .y2 = w->heightb},
+        },
+        4);
+    pixman_region32_subtract(res, res, &corners);
+    pixman_region32_fini(&corners);
 }
 
 static inline region_t win_get_bounding_shape_global_by_val(struct managed_win *w, bool include_corners) {
 	region_t ret;
 	pixman_region32_init(&ret);
 	pixman_region32_copy(&ret, &w->bounding_shape);
-	if(!include_corners) win_region_remove_corners(w, &ret);
+    if(!include_corners) win_region_remove_corners(w, &ret);
 	pixman_region32_translate(&ret, w->g.x, w->g.y);
 	return ret;
 }

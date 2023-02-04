@@ -33,11 +33,8 @@ typedef struct {
 typedef struct {
 	GLuint prog;
 	GLint unifm_opacity;
-	GLint unifm_texture_size;
-	GLint unifm_halfpixel;
 	GLint orig_loc;
 	GLint texorig_loc;
-	GLint projection_loc;
 } gl_blur_shader_t;
 
 typedef struct {
@@ -135,7 +132,6 @@ bool gl_blur(backend_t *base, double opacity, void *, const region_t *reg_blur,
 void *gl_create_blur_context(backend_t *base, enum blur_method, void *args);
 void gl_destroy_blur_context(backend_t *base, void *ctx);
 void gl_get_blur_size(void *blur_context, int *width, int *height);
-
 
 bool gl_round(backend_t *backend_data, struct managed_win *w, void *ctx_,
 				void *image_data, const region_t *reg_round, const region_t *reg_visible);
