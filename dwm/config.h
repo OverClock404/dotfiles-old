@@ -10,11 +10,11 @@ static const int vertpad            = 10;       /* vertical padding of bar */
 static const int sidepad            = 10;       /* horizontal padding of bar */
 static const char *fonts[]          = { "jetbrainsmono:size=10", "noto-fonts-sc:size=12" };
 static const char dmenufont[]       = "jetbrainsmono:size=10";
-static const char col_gray1[]       = "#0e2047";
+static const char col_gray1[]       = "#0d1026";
 static const char col_gray2[]       = "#444444";
 static const char col_gray3[]       = "#bbbbbb";
 static const char col_gray4[]       = "#eeeeee";
-static const char col_cyan[]        = "#0d1026";
+static const char col_cyan[]        = "#111d47";
 static const char *colors[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
@@ -62,6 +62,7 @@ static const Layout layouts[] = {
 static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
 static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
 static const char *termcmd[]  = { "st", NULL };
+static const char *explorer[] = { "nautilus" };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -101,6 +102,7 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
+	{ MODKEY,                       XK_e,      spawn,          {.v = explorer} }
 };
 
 /* button definitions */
