@@ -1,39 +1,50 @@
 --- dwm.c
 +++ dwm.c
-@@ -1703,7 +1703,7 @@ textnw(const char *text, unsigned int len) {
+@@ -736,39 +734,15 @@ drawbar(Monitor *m)
+ 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
  
- void
- tile(Monitor *m) {
--	unsigned int i, n, h, r, g = 0, mw, my, ty;
-+	unsigned int i, n, h, mw, my, ty;
- 	Client *c;
- 
- 	for(n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
-@@ -1711,21 +1711,19 @@ tile(Monitor *m) {
- 		return;
- 
- 	if(n > m->nmaster)
--		mw = m->nmaster ? (m->ww - (g = gappx)) * m->mfact : 0;
-+		mw = m->nmaster ? m->ww * m->mfact : 0;
- 	else
- 		mw = m->ww;
- 	for(i = my = ty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
- 		if(i < m->nmaster) {
--			r = MIN(n, m->nmaster) - i;
--			h = (m->wh - my - gappx * (r - 1)) / r;
-+			h = (m->wh - my) / (MIN(n, m->nmaster) - i);
- 			resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), False);
--			my += HEIGHT(c) + gappx;
-+			my += HEIGHT(c);
+ 	if ((w = m->ww - tw - x) > bh) {
+-		if (n > 0) {
+-			tw = TEXTW(m->sel->name) + lrpad;
+-			mw = (tw >= w || n == 1) ? 0 : (w - tw) / (n - 1);
+-
+-			i = 0;
+-			for (c = m->clients; c; c = c->next) {
+-				if (!ISVISIBLE(c) || c == m->sel)
+-					continue;
+-				tw = TEXTW(c->name);
+-				if(tw < mw)
+-					ew += (mw - tw);
+-				else
+-					i++;
+-			}
+-			if (i > 0)
+-				mw += ew / i;
+-
+-			for (c = m->clients; c; c = c->next) {
+-				if (!ISVISIBLE(c))
+-					continue;
+-				tw = MIN(m->sel == c ? w : mw, TEXTW(c->name));
+-
+-				drw_setscheme(drw, scheme[m == selmon && m->sel == c ? SchemeSel : SchemeNorm]);
+-				if (tw > lrpad / 2)
+-					drw_text(drw, x, 0, tw, bh, lrpad / 2, c->name, 0);
+-				if (c->isfloating)
+-					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
+-				x += tw;
+-				w -= tw;
+-			}
++		if (m->sel) {
++			drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
++			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
++			if (m->sel->isfloating)
++				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
++		} else {
++			drw_setscheme(drw, scheme[SchemeNorm]);
++			drw_rect(drw, x, 0, w, bh, 1, 1);
  		}
- 		else {
--			r = n - i;
--			h = (m->wh - ty - gappx * (r - 1)) / r;
--			resize(c, m->wx + mw + g, m->wy + ty, m->ww - mw - g - (2*c->bw), h - (2*c->bw), False);
--			ty += HEIGHT(c) + gappx;
-+			h = (m->wh - ty) / (n - i);
-+			resize(c, m->wx + mw, m->wy + ty, m->ww - mw - (2*c->bw), h - (2*c->bw), False);
-+			ty += HEIGHT(c);
- 		}
+-		drw_setscheme(drw, scheme[SchemeNorm]);
+-		drw_rect(drw, x, 0, w, bh, 1, 1);
+ 	}
+ 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
  }
- 
